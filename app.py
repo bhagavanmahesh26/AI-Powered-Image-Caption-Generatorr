@@ -13,7 +13,7 @@ def create_app() -> Flask:
     app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10 MB upload limit
 
     model_name = os.getenv("BLIP_MODEL_NAME", "Salesforce/blip-image-captioning-base")
-    processor = BlipProcessor.from_pretrained(model_name)
+    processor = BlipProcessor.from_pretrained(model_name, use_fast=True)
     model = BlipForConditionalGeneration.from_pretrained(model_name)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
