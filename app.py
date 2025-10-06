@@ -1,6 +1,7 @@
 import os
 from functools import lru_cache
 from io import BytesIO
+from threading import Thread
 
 from flask import Flask, jsonify, render_template, request
 from PIL import Image
@@ -24,6 +25,14 @@ def create_app() -> Flask:
         model.eval()
 
         return processor, model, device
+
+    def _warmup_model() -> None:
+        try:
+            load_model()
+        except Exception as exc:
+            app.logger.exception("Model warmup failed: %s", exc)
+
+    Thread(target=_warmup_model, daemon=True).start()
 
     @app.route("/")
     def index():
