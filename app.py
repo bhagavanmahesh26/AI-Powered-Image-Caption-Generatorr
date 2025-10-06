@@ -1,4 +1,5 @@
 import os
+from functools import lru_cache
 from io import BytesIO
 
 from flask import Flask, jsonify, render_template, request
@@ -12,13 +13,17 @@ def create_app() -> Flask:
     app = Flask(__name__, static_folder="static", template_folder="templates")
     app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10 MB upload limit
 
-    model_name = os.getenv("BLIP_MODEL_NAME", "Salesforce/blip-image-captioning-base")
-    processor = BlipProcessor.from_pretrained(model_name, use_fast=True)
-    model = BlipForConditionalGeneration.from_pretrained(model_name)
+    @lru_cache(maxsize=1)
+    def load_model():
+        model_name = os.getenv("BLIP_MODEL_NAME", "Salesforce/blip-image-captioning-base")
+        processor = BlipProcessor.from_pretrained(model_name, use_fast=True)
+        model = BlipForConditionalGeneration.from_pretrained(model_name)
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)
-    model.eval()
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model.to(device)
+        model.eval()
+
+        return processor, model, device
 
     @app.route("/")
     def index():
@@ -40,6 +45,7 @@ def create_app() -> Flask:
             return jsonify({"error": "Invalid image file."}), 400
 
         try:
+            processor, model, device = load_model()
             inputs = processor(images=image, return_tensors="pt")
             inputs = {key: tensor.to(device) for key, tensor in inputs.items()}
 
